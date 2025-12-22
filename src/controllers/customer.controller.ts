@@ -1,0 +1,130 @@
+import { Request, Response } from "express";
+import pool from "../config/db.js";
+import { clean } from "../utils/clean.js";
+
+interface AuthRequest extends Request {
+  user?: any;
+}
+
+export const createCustomer = async (req: AuthRequest, res: Response) => {
+  try {
+    console.log("createCustomer", req.body);
+    const { name, email, mobile, address, state, gst_number } = req.body;
+    const user_id = req.user.id;
+
+    const result = await pool.query(
+      `INSERT INTO customers (user_id,name,email,mobile,address,state,gst_number)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [user_id, name, email, mobile, address, state, gst_number]
+    );
+
+    res
+      .status(201)
+      .json({ message: "Customer Added successfully", data: result.rows[0] });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getCustomers = async (req: AuthRequest, res: Response) => {
+  try {
+    const user_id = req.user.id;
+    const result = await pool.query(
+      "SELECT * FROM customers WHERE user_id=$1",
+      [user_id]
+    );
+    const data = result.rows.map((customer) => ({
+      customerType: customer.customer_type,
+      ...customer,
+    }));
+    res.json(data);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const getCustomerById = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user_id = req.user.id;
+
+    const result = await pool.query(
+      "SELECT * FROM customers WHERE id=$1 AND user_id=$2",
+      [id, user_id]
+    );
+    const data = result.rows.map((customer) => ({
+      customerType: customer.customer_type,
+      ...customer,
+    }));
+    if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
+
+    res.json(data[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const updateCustomer = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user_id = req.user.id;
+    const {
+      name,
+      email,
+      mobile,
+      address,
+      state,
+      gst_number,
+      city,
+      pincode,
+      customerType,
+    } = Object.fromEntries(
+      Object.entries(req.body).map(([k, v]) => [k, clean(v)])
+    );
+
+    const result = await pool.query(
+      `UPDATE customers SET name=$1,email=$2,mobile=$3,address=$4,state=$5,gst_number=$6,city=$7,pincode=$8,customer_type=$9
+       WHERE id=$10 AND user_id=$11 RETURNING *`,
+      [
+        name,
+        email,
+        mobile,
+        address,
+        state,
+        gst_number,
+        city,
+        pincode,
+        customerType,
+        id,
+        user_id,
+      ]
+    );
+
+    if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+export const deleteCustomer = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const user_id = req.user.id;
+
+    const result = await pool.query(
+      "DELETE FROM customers WHERE id=$1 AND user_id=$2 RETURNING *",
+      [id, user_id]
+    );
+    if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
+
+    res.json({ message: "Deleted successfully" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
