@@ -1,11 +1,11 @@
 import express from "express";
-import { auth } from "../middleware/auth.js";
+import { auth } from "../../../middleware/index.js";
 import {
   createInvoice,
   getInvoices,
   getInvoiceById,
   deleteInvoice,
-} from "../controllers/invoice.controller.js";
+} from "../../../controllers/invoice.controller.js";
 
 const router = express.Router();
 router.use(auth);

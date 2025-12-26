@@ -6,6 +6,7 @@ import pool from "../config/db.js";
 import { updateProfileSchema } from "../validators/user.schema.js";
 import { updateProfileService } from "../services/user.service.js";
 import { AppError } from "../utils/errors.js";
+import ErrorHandler from "../helper/error-handler.js";
 dotenv.config();
 
 interface AuthRequest extends Request {
@@ -30,7 +31,6 @@ export const register = async (
 ) => {
   try {
     const { email, password } = req.body;
-    console.log("req.body", req.body);
 
     // check if user exists
     const checkUser = await pool.query("SELECT * FROM users WHERE email = $1", [
@@ -38,7 +38,7 @@ export const register = async (
     ]);
 
     if (checkUser.rows.length > 0) {
-      return res.status(400).json({ message: "Email already registered" });
+      throw new ErrorHandler(500, "User Already Exists, Try logging In");
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
@@ -52,9 +52,17 @@ export const register = async (
       message: "User registered successfully",
       user: result.rows[0],
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+
+    if (error instanceof ErrorHandler) {
+      throw error;
+    }
+
+    throw new ErrorHandler(
+      error.statusCode ?? 500,
+      error.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -67,16 +75,15 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
       "SELECT * FROM users WHERE email = $1",
       [email]
     );
-
     if (userResult.rows.length === 0) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      throw new ErrorHandler(500, "No Account Found, Try Singup");
     }
 
     const user = userResult.rows[0];
 
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(400).json({ message: "Invalid email or password" });
+      throw new ErrorHandler(500, "Invalid Credentials");
     }
 
     const token = jwt.sign(
@@ -94,9 +101,17 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
         email: user.email,
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error(error);
-    res.status(500).json({ message: "Server error" });
+
+    if (error instanceof ErrorHandler) {
+      throw error;
+    }
+
+    throw new ErrorHandler(
+      error.statusCode ?? 500,
+      error.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -112,8 +127,7 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
       [user_id]
     );
 
-    if (!userRes.rows[0])
-      return res.status(404).json({ message: "User not found" });
+    if (!userRes.rows[0]) throw new ErrorHandler(400, "User not found");
     const user = userRes.rows[0];
 
     // Optional: fetch primary payment info
@@ -129,9 +143,17 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     };
 
     res.json(profile);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Server error" });
+  } catch (error: any) {
+    console.error(error);
+
+    if (error instanceof ErrorHandler) {
+      throw error;
+    }
+
+    throw new ErrorHandler(
+      error.statusCode ?? 500,
+      error.message ?? "Internal Server Error"
+    );
   }
 };
 
