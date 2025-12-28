@@ -1,12 +1,12 @@
 import express from "express";
-import { auth } from "../middleware/auth.js";
+import { auth } from "../../../middleware/auth.js";
 import {
   createProduct,
   getProducts,
   getProductById,
   updateProduct,
   deleteProduct,
-} from "../controllers/products.controller.js";
+} from "../../../controllers/products.controller.js";
 
 const router = express.Router();
 router.use(auth);

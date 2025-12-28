@@ -1,26 +1,20 @@
-import express from "express";
+import express, { NextFunction, Request, Response } from "express";
 import cors from "cors";
 import dotenv from "dotenv";
 import pool from "./config/db.js";
-import authRoutes from "./routes/auth.routes.js";
-import customerRoutes from "./routes/customers.routes.js";
-import productRoutes from "./routes/products.routes.js";
-import invoiceRoutes from "./routes/invoice.routes.js";
-import dashboardRoutes from "./routes/dashboard.routes.js";
+
 import ServerlessHttp from "serverless-http";
+import { handleError } from "./middleware/index.js";
+import { v1 } from "./routes/index.js";
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
-
-app.use("/api/auth", authRoutes);
-app.use("/api/customers", customerRoutes);
-app.use("/api/products", productRoutes);
-app.use("/api/invoices", invoiceRoutes);
-app.use("/api/dashboard", dashboardRoutes);
+app
+  .use(express.json({ limit: "10mb" }))
+  .use(cors())
+  .use("/api", v1);
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello, BillBook Backend is running!" });
@@ -39,6 +33,10 @@ app.get("/test-db", async (req, res) => {
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+  handleError(err, res);
 });
 
 const PORT = process.env.PORT || 5000;
