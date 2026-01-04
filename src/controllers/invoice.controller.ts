@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import pool from "../config/db.js";
 import { generateInvoiceNumber } from "../utils/invoiceNumber.js";
 import ErrorHandler from "../helper/error-handler.js";
+import camelize from "camelize";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -200,8 +201,8 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
     `;
 
     const result = await pool.query(query, [user_id]);
-
-    res.json(result.rows);
+    const finalResponse = camelize(result.rows);
+    res.json(finalResponse);
   } catch (err: any) {
     console.error(err);
     throw new ErrorHandler(
