@@ -1,17 +1,31 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import pool from "../config/db.js";
 import { clean } from "../utils/clean.js";
+import ErrorHandler from "../helper/error-handler.js";
 
 interface AuthRequest extends Request {
   user?: any;
 }
 
-export const createCustomer = async (req: AuthRequest, res: Response) => {
+export const createCustomer = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
   try {
-    console.log("createCustomer", req.body);
     const { name, email, mobile, address, state, gst_number } = req.body;
+    if (!email && !mobile) {
+      return next(new ErrorHandler(500, "No required Data"));
+    }
     const user_id = req.user.id;
 
+    const isExistingCustomer = await pool.query(
+      "SELECT * FROM customers WHERE (user_id = $1 AND email = $2) OR mobile = $3",
+      [user_id, email, mobile]
+    );
+    if (isExistingCustomer.rows.length > 0) {
+      return next(new ErrorHandler(500, "Customer Already Exists "));
+    }
     const result = await pool.query(
       `INSERT INTO customers (user_id,name,email,mobile,address,state,gst_number)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
@@ -21,9 +35,12 @@ export const createCustomer = async (req: AuthRequest, res: Response) => {
     res
       .status(201)
       .json({ message: "Customer Added successfully", data: result.rows[0] });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -39,9 +56,12 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
       ...customer,
     }));
     res.json(data);
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 

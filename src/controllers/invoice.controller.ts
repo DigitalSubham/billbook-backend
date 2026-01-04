@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import pool from "../config/db.js";
 import { generateInvoiceNumber } from "../utils/invoiceNumber.js";
+import ErrorHandler from "../helper/error-handler.js";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -26,8 +27,11 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       igst_total,
       notes,
       items,
+      discount_amnt,
+      discount_desc,
+      discount_type,
     } = req.body;
-
+    // NOTE :- Discount type should be ENUM ("PERCENTAGE","ITEM-WISE","FIXED-AMOUNT")
     const user_id = req.user.id;
     const invoice_number = await generateInvoiceNumber(user_id);
 
@@ -36,8 +40,8 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       `
       INSERT INTO invoices 
       (user_id, customer_id, invoice_number, invoice_type, invoice_date, due_date, 
-       status, payment_status, total_amount, total_tax, notes,cgst_total,sgst_total,igst_total)
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+       status, payment_status, total_amount, total_tax, notes,cgst_total,sgst_total,igst_total,discount_amnt,discount_desc,discount_type)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING *;
       `,
       [
@@ -55,6 +59,9 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         cgst_total,
         sgst_total,
         igst_total,
+        discount_amnt ?? null,
+        discount_desc ?? null,
+        discount_type ?? null,
       ]
     );
 
@@ -123,7 +130,10 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
   } catch (err: any) {
     await client.query("ROLLBACK");
     console.error(err);
-    res.status(500).json({ message: err.message || "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   } finally {
     client.release();
   }
@@ -192,9 +202,12 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
     const result = await pool.query(query, [user_id]);
 
     res.json(result.rows);
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -216,9 +229,12 @@ export const getInvoiceById = async (req: AuthRequest, res: Response) => {
     );
 
     res.json({ ...invoiceRes.rows[0], items: itemsRes.rows });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -234,8 +250,11 @@ export const deleteInvoice = async (req: AuthRequest, res: Response) => {
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
 
     res.json({ message: "Deleted successfully" });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
