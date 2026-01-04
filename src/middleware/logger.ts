@@ -33,7 +33,7 @@ export function logger(req: Request, res: Response, next: NextFunction): void {
       body,
     };
 
-    console.log(JSON.stringify(responseLog));
+    console.log("LOGGER", JSON.stringify(responseLog));
 
     return originalSend(body);
   };

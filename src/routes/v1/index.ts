@@ -7,9 +7,9 @@ import generalRoute from "./general/general.routes.js";
 
 const router = express.Router();
 router.use("/auth", authRoute);
-router.use("/customer", customerRoute);
-router.use("/invoice", invoiceRoute);
-router.use("/product", productRoute);
+router.use("/customers", customerRoute);
+router.use("/invoices", invoiceRoute);
+router.use("/products", productRoute);
 router.use("/general", generalRoute);
 
 export default router;

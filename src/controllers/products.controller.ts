@@ -59,7 +59,7 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
     ]);
     const data = result.rows.map((product) => ({
       ...product,
-      taxRate: Number.parseFloat(product.tax_percent),
+      taxRate: Number.parseFloat(product.tax_percent) || 0,
       rate: Number.parseFloat(product.selling_rate),
     }));
     res.json(data);
