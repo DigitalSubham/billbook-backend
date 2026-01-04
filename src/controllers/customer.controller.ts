@@ -48,7 +48,7 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
   try {
     const user_id = req.user.id;
     const result = await pool.query(
-      "SELECT * FROM customers WHERE user_id=$1",
+      "SELECT cs.*,SUM(invoices.total_amount) AS totalAmount,SUM(invoices.received_amount)receivedAmount,SUM(invoices.total_amount) - SUM(invoices.received_amount) AS pendingAmount FROM customers cs LEFT JOIN invoices ON cs.id = invoices.customer_id WHERE cs.user_id = $1 GROUP BY cs.id;",
       [user_id]
     );
     const data = result.rows.map((customer) => ({

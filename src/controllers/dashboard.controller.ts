@@ -53,7 +53,7 @@ export const getDashboard = async (req: AuthRequest, res: Response) => {
 
     // Recent 5 invoices
     const recentInvoicesRes = await pool.query(
-      "SELECT id,invoice_number,customer_id,total_amount,status,payment_status,invoice_date FROM invoices WHERE user_id=$1 ORDER BY invoice_date DESC LIMIT 5",
+      "SELECT id,invoice_number,customer_id,total_amount,payment_status,invoice_date FROM invoices WHERE user_id=$1 ORDER BY invoice_date DESC LIMIT 5",
       [user_id]
     );
 
