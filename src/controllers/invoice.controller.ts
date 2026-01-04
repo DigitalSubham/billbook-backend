@@ -116,7 +116,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         [quantity, product_id]
       );
 
-      // If no row returned → insufficient stock
+      // If no row returned → insufficient stoc
       if (updateRes.rowCount === 0) {
         throw new Error(`Product ID ${product_id} has insufficient stock`);
       }
