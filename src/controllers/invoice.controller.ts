@@ -19,7 +19,6 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       invoice_type,
       invoice_date,
       due_date,
-      status,
       payment_status,
       total_amount,
       total_tax,
@@ -31,6 +30,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       discount_amnt,
       discount_desc,
       discount_type,
+      received_amount,
     } = req.body;
     // NOTE :- Discount type should be ENUM ("PERCENTAGE","ITEM-WISE","FIXED-AMOUNT")
     const user_id = req.user.id;
@@ -41,7 +41,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       `
       INSERT INTO invoices 
       (user_id, customer_id, invoice_number, invoice_type, invoice_date, due_date, 
-       status, payment_status, total_amount, total_tax, notes,cgst_total,sgst_total,igst_total,discount_amnt,discount_desc,discount_type)
+        payment_status, total_amount, total_tax, notes,cgst_total,sgst_total,igst_total,discount_amnt,discount_desc,discount_type,received_amount)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING *;
       `,
@@ -52,7 +52,6 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         invoice_type,
         invoice_date,
         due_date,
-        status,
         payment_status,
         total_amount,
         total_tax,
@@ -63,6 +62,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         discount_amnt ?? null,
         discount_desc ?? null,
         discount_type ?? null,
+        received_amount ?? null,
       ]
     );
 
@@ -116,7 +116,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         [quantity, product_id]
       );
 
-      // If no row returned → insufficient stock
+      // If no row returned → insufficient stoc
       if (updateRes.rowCount === 0) {
         throw new Error(`Product ID ${product_id} has insufficient stock`);
       }
@@ -151,9 +151,9 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
         inv.invoice_type,
         inv.invoice_date,
         inv.due_date,
-        inv.status,
         inv.payment_status,
         inv.total_amount,
+        inv.received_amount,
         inv.total_tax,
         inv.notes,
         inv.created_at,
