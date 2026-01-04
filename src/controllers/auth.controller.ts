@@ -5,7 +5,6 @@ import dotenv from "dotenv";
 import pool from "../config/db.js";
 import { updateProfileSchema } from "../validators/user.schema.js";
 import { updateProfileService } from "../services/user.service.js";
-import { AppError } from "../utils/errors.js";
 import ErrorHandler from "../helper/error-handler.js";
 dotenv.config();
 
@@ -167,13 +166,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     res.json({ success: true, user });
   } catch (err: any) {
-    if (err instanceof AppError) {
-      return res.status(err.status).json({
-        success: false,
-        message: err.message,
-      });
-    }
-
+    console.error(err);
     if (err.name === "ZodError") {
       return res.status(400).json({
         success: false,
@@ -181,10 +174,9 @@ export const updateProfile = async (req: Request, res: Response) => {
       });
     }
 
-    console.error(err);
-    res.status(500).json({
-      success: false,
-      message: "Internal server error",
-    });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };

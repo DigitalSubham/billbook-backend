@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../config/db.js";
+import ErrorHandler from "../helper/error-handler.js";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -7,7 +8,6 @@ interface AuthRequest extends Request {
 
 export const createProduct = async (req: AuthRequest, res: Response) => {
   try {
-    console.log("first", req.body);
     const {
       name,
       description,
@@ -42,9 +42,12 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
       message: "Product created successfully",
       product: result.rows[0],
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -60,9 +63,12 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
       rate: Number.parseFloat(product.selling_rate),
     }));
     res.json(data);
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -80,9 +86,12 @@ export const getProductById = async (req: AuthRequest, res: Response) => {
     };
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
     res.json(data);
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -139,9 +148,12 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
     }
 
     res.json(result.rows[0]);
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
@@ -155,8 +167,11 @@ export const deleteProduct = async (req: AuthRequest, res: Response) => {
     );
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
     res.json({ message: "Deleted successfully" });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };

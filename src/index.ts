@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 import pool from "./config/db.js";
 
 import ServerlessHttp from "serverless-http";
-import { handleError } from "./middleware/index.js";
+import { handleError, logger } from "./middleware/index.js";
 import { v1 } from "./routes/index.js";
 
 dotenv.config();
@@ -14,6 +14,7 @@ const app = express();
 app
   .use(express.json({ limit: "10mb" }))
   .use(cors())
+  .use(logger)
   .use("/api", v1);
 
 app.get("/", (req, res) => {

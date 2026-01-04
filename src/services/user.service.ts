@@ -1,6 +1,6 @@
 import pool from "../config/db.js";
-import { AppError } from "../utils/errors.js";
 import { clean } from "../utils/clean.js";
+import ErrorHandler from "../helper/error-handler.js";
 
 export const updateUserDB = async (client: any, userId: number, data: any) => {
   return client.query(
@@ -114,8 +114,7 @@ export const updateProfileService = async (userId: number, payload: any) => {
     // --- check user uniqueness ---
     const conflicts = await checkUserUnique(client, data, userId);
     if (conflicts.length > 0)
-      throw new AppError(`${conflicts.join(", ")} already exists`, 409);
-
+      throw new ErrorHandler(409, `${conflicts.join(", ")} already exists`);
     // --- check payment uniqueness ---
     const paymentConflict = await checkPaymentUnique(
       client,
@@ -123,11 +122,12 @@ export const updateProfileService = async (userId: number, payload: any) => {
       userId
     );
     if (paymentConflict.length > 0)
-      throw new AppError("Account number already exists", 409);
+      throw new ErrorHandler(409, "Account number already exists");
 
     // --- update user ---
     const user = await updateUserDB(client, userId, data);
-    if (user.rowCount === 0) throw new AppError("User not found", 404);
+    if (user.rowCount === 0)
+      throw new ErrorHandler(409, "No Account Found Try signup");
 
     // --- upsert payment ---
     let payment = null;

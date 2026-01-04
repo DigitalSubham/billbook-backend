@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import jwt, { JwtPayload } from "jsonwebtoken";
 import dotenv from "dotenv";
+import ErrorHandler from "../helper/error-handler.js";
 
 dotenv.config();
 
@@ -8,13 +9,11 @@ export const auth = (req: Request, res: Response, next: NextFunction) => {
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader)
-      return res.status(401).json({ message: "No token provided" });
+    if (!authHeader) return next(new ErrorHandler(401, "Token Required"));
 
     const token = authHeader.split(" ")[1];
 
-    if (!token)
-      return res.status(401).json({ message: "Invalid token format" });
+    if (!token) return next(new ErrorHandler(401, "Token Required"));
 
     const decoded = jwt.verify(
       token,
