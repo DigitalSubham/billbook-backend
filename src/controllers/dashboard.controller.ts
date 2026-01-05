@@ -71,3 +71,18 @@ export const getDashboard = async (req: AuthRequest, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+export const dropDown = async (req: AuthRequest, res: Response) => {
+  try {
+    const { code } = req.body;
+    if (code === "ROLE") {
+      const data = await pool.query(
+        "SELECT id,name FROM role WHERE is_active IS TRUE"
+      );
+      res.status(200).json({ message: "Success", data: data.rows });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
