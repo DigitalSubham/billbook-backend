@@ -3,6 +3,7 @@ import pool from "../config/db.js";
 import { clean } from "../utils/clean.js";
 import ErrorHandler from "../helper/error-handler.js";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -133,6 +134,54 @@ export const deleteSalesman = async (
     throw new ErrorHandler(
       err.statusCode ?? 500,
       err.message ?? "Internal Server Error"
+    );
+  }
+};
+// LOGIN Salesman
+export const salesmanLogin = async (req: Request, res: Response) => {
+  try {
+    const { email, mobile, password, userId } = req.body;
+
+    const userResult = await pool.query(
+      "SELECT * FROM salesman WHERE (mobile = $1 OR email = $2) AND user_id = $3",
+      [mobile, email, userId]
+    );
+    if (userResult.rows.length === 0) {
+      throw new ErrorHandler(500, "No Account Found, Contact Your Admin");
+    }
+
+    const user = userResult.rows[0];
+
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      throw new ErrorHandler(500, "Invalid Credentials");
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      process.env.JWT_SECRET as string,
+      { expiresIn: "7d" }
+    );
+
+    res.json({
+      message: "Login successful",
+      token,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+      },
+    });
+  } catch (error: any) {
+    console.error(error);
+
+    if (error instanceof ErrorHandler) {
+      throw error;
+    }
+
+    throw new ErrorHandler(
+      error.statusCode ?? 500,
+      error.message ?? "Internal Server Error"
     );
   }
 };
