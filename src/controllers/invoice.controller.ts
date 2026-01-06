@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+import { NextFunction, Request, Response } from "express";
 import pool from "../config/db.js";
 import { generateInvoiceNumber } from "../utils/invoiceNumber.js";
 import ErrorHandler from "../helper/error-handler.js";
@@ -67,6 +67,11 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
     );
 
     const invoice = invoiceRes.rows[0];
+
+    const result = await client.query(
+      "INSERT INTO payments (amount,invoice_id,user_id) VALUES ($1,$2,$3)",
+      [received_amount, invoice.id, user_id]
+    );
 
     // 2️⃣ Insert invoice items + Update product stock
     for (const item of items) {
@@ -251,6 +256,29 @@ export const deleteInvoice = async (req: AuthRequest, res: Response) => {
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
 
     res.json({ message: "Deleted successfully" });
+  } catch (err: any) {
+    console.error(err);
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
+  }
+};
+
+export const addPaymentsForInvoice = async (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { amount, invoiceId, salesmanId } = req.body;
+    const user_id = req.user.id;
+    await pool.query(
+      "INSERT INTO payments (amount,invoice_id,user_id,added_by) VALUES ($1,$2,$3,$4)",
+      [amount, invoiceId, user_id, salesmanId]
+    );
+
+    res.status(200).json({ message: "Payment Added Successfully" });
   } catch (err: any) {
     console.error(err);
     throw new ErrorHandler(
