@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import pool from "../config/db.js";
+import ErrorHandler from "../helper/error-handler.js";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -66,23 +67,44 @@ export const getDashboard = async (req: AuthRequest, res: Response) => {
       totalRevenue,
       recentInvoices: recentInvoicesRes.rows,
     });
-  } catch (err) {
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
 
 export const dropDown = async (req: AuthRequest, res: Response) => {
   try {
     const { code } = req.body;
+    const user_id = req.user.id;
     if (code === "ROLE") {
       const data = await pool.query(
         "SELECT id,name FROM role WHERE is_active IS TRUE"
       );
       res.status(200).json({ message: "Success", data: data.rows });
     }
-  } catch (err) {
+    if (code === "PRODUCTS") {
+      const data = await pool.query(
+        "SELECT * FROM products WHERE user_id = $1 AND is_active IS NOT FALSE",
+        [user_id]
+      );
+      res.status(200).json({ message: "Success", data: data.rows });
+    }
+    if (code === "CUSTOMERS") {
+      const data = await pool.query(
+        "SELECT * FROM customers WHERE user_id = $1 AND is_active IS NOT FALSE",
+        [user_id]
+      );
+      res.status(200).json({ message: "Success", data: data.rows });
+    }
+  } catch (err: any) {
     console.error(err);
-    res.status(500).json({ message: "Server error" });
+    throw new ErrorHandler(
+      err.statusCode ?? 500,
+      err.message ?? "Internal Server Error"
+    );
   }
 };
