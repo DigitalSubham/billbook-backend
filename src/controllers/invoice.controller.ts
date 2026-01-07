@@ -68,7 +68,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
 
     const invoice = invoiceRes.rows[0];
 
-    const result = await client.query(
+    await client.query(
       "INSERT INTO payments (amount,invoice_id,user_id) VALUES ($1,$2,$3)",
       [received_amount, invoice.id, user_id]
     );
@@ -123,7 +123,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
 
       // If no row returned → insufficient stoc
       if (updateRes.rowCount === 0) {
-        throw new Error(`Product ID ${product_id} has insufficient stock`);
+        throw new Error(`Product ${product_name} has insufficient stock`);
       }
     }
 
