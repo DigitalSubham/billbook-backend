@@ -108,8 +108,8 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
       tax_percent,
       mrp,
       category,
+      is_active,
     } = req.body;
-    console.log("req.body", req.body);
     const user_id = req.user.id;
 
     const result = await pool.query(
@@ -124,8 +124,9 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
         unit=$6,
         tax_percent=$7,
         mrp=$8,
-        category=$9
-      WHERE id=$10 AND user_id=$11
+        category=$9,
+        is_active=$10,
+      WHERE id=$11 AND user_id=$12
       RETURNING *
       `,
       [
@@ -138,6 +139,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
         tax_percent,
         mrp,
         category,
+        is_active ?? true,
         id,
         user_id,
       ]
