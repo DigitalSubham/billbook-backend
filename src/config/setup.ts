@@ -44,7 +44,7 @@ async function createTables() {
         name VARCHAR(150),
         city VARCHAR(100),
         pincode VARCHAR(6),
-        customer_type VARCHAR(20) DEFAULT 'Regular'
+        customer_type VARCHAR(20) DEFAULT 'Regular',
         email VARCHAR(150),
         mobile VARCHAR(30),
         address TEXT,

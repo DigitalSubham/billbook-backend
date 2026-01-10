@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
+    "deploy": "serverless deploy",
     "start": "node dist/index.js",
     "setup": "tsx src/config/setup.ts",
     "update:schema": "tsx src/config/extra.ts"

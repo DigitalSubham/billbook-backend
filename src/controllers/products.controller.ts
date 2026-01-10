@@ -125,7 +125,7 @@ export const updateProduct = async (req: AuthRequest, res: Response) => {
         tax_percent=$7,
         mrp=$8,
         category=$9,
-        is_active=$10,
+        is_active=$10
       WHERE id=$11 AND user_id=$12
       RETURNING *
       `,

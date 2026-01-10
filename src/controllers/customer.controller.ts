@@ -14,18 +14,47 @@ export const createCustomer = async (
 ) => {
   try {
     const { name, email, mobile, address, state, gst_number } = req.body;
-    if (!email && !mobile) {
-      return next(new ErrorHandler(500, "No required Data"));
+    if (!name && !mobile) {
+      return next(new ErrorHandler(500, "Name and mobile are required"));
+    }
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return next(new ErrorHandler(500, "Invalid Email Format"));
+    }
+    if (mobile && !/^\d{10}$/.test(mobile)) {
+      return next(new ErrorHandler(500, "Invalid Mobile Number"));
     }
     const user_id = req.user.id;
 
-    const isExistingCustomer = await pool.query(
-      "SELECT * FROM customers WHERE (user_id = $1 AND email = $2) OR mobile = $3",
-      [user_id, email, mobile]
-    );
-    if (isExistingCustomer.rows.length > 0) {
-      return next(new ErrorHandler(500, "Customer Already Exists "));
+    let existingCustomer;
+
+    if (email) {
+      existingCustomer = await pool.query(
+        `
+    SELECT 1
+    FROM customers
+    WHERE user_id = $1
+      AND (email = $2 OR mobile = $3)
+    `,
+        [user_id, email, mobile]
+      );
+    } else {
+      existingCustomer = await pool.query(
+        `
+    SELECT 1
+    FROM customers
+    WHERE user_id = $1
+      AND mobile = $2
+    `,
+        [user_id, mobile]
+      );
     }
+
+    if (existingCustomer.rows.length > 0) {
+      return next(
+        new ErrorHandler(409, "Customer already exists with this mobile no.")
+      );
+    }
+
     const result = await pool.query(
       `INSERT INTO customers (user_id,name,email,mobile,address,state,gst_number)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
