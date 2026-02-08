@@ -91,7 +91,7 @@ async function createTables() {
         cgst_total DECIMAL(12,2) DEFAULT 0,
         sgst_total DECIMAL(12,2) DEFAULT 0,
         igst_total DECIMAL(12,2) DEFAULT 0,
-        notes TEXT,
+        notes VARCHAR(50),
         payment_method VARCHAR(50),
         created_at TIMESTAMP DEFAULT NOW()
       );
