@@ -10,68 +10,48 @@ export const getDashboard = async (req: AuthRequest, res: Response) => {
   try {
     const user_id = req.user.id;
 
-    // Total customers
-    const customersRes = await pool.query(
-      "SELECT COUNT(*) FROM customers WHERE user_id=$1",
-      [user_id]
-    );
-    const totalCustomers = parseInt(customersRes.rows[0].count, 10);
-
-    // Total products
-    const productsRes = await pool.query(
-      "SELECT COUNT(*) FROM products WHERE user_id=$1",
-      [user_id]
-    );
-    const totalProducts = parseInt(productsRes.rows[0].count, 10);
-
-    // Total invoices
-    const invoicesRes = await pool.query(
-      "SELECT COUNT(*) FROM invoices WHERE user_id=$1",
-      [user_id]
-    );
-    const totalInvoices = parseInt(invoicesRes.rows[0].count, 10);
-
-    // Total paid invoices
-    const paidInvoicesRes = await pool.query(
-      "SELECT COUNT(*) FROM invoices WHERE user_id=$1 AND payment_status='paid'",
-      [user_id]
-    );
-    const totalPaidInvoices = parseInt(paidInvoicesRes.rows[0].count, 10);
-
-    // Total unpaid invoices
-    const unpaidInvoicesRes = await pool.query(
-      "SELECT COUNT(*) FROM invoices WHERE user_id=$1 AND payment_status='unpaid'",
-      [user_id]
-    );
-    const totalUnpaidInvoices = parseInt(unpaidInvoicesRes.rows[0].count, 10);
-
-    // Total revenue (sum of paid invoices)
-    const revenueRes = await pool.query(
-      "SELECT COALESCE(SUM(total_amount),0) as total_revenue FROM invoices WHERE user_id=$1 AND payment_status='paid'",
-      [user_id]
-    );
-    const totalRevenue = parseFloat(revenueRes.rows[0].total_revenue);
-
-    // Recent 5 invoices
-    const recentInvoicesRes = await pool.query(
-      "SELECT id,invoice_number,customer_id,total_amount,payment_status,invoice_date FROM invoices WHERE user_id=$1 ORDER BY invoice_date DESC LIMIT 5",
-      [user_id]
+    // 1️⃣ Dashboard statistics (ONE DB CALL)
+    const statsRes = await pool.query(
+      `
+      SELECT
+        (SELECT COUNT(*) FROM customers WHERE user_id = $1) AS "totalCustomers",
+        (SELECT COUNT(*) FROM products  WHERE user_id = $1) AS "totalProducts",
+        (SELECT COUNT(*) FROM invoices  WHERE user_id = $1) AS "totalInvoices",
+        (SELECT COUNT(*) FROM invoices  WHERE user_id = $1 AND payment_status = 'paid')
+          AS "totalPaidInvoices",
+        (SELECT COUNT(*) FROM invoices  WHERE user_id = $1 AND payment_status = 'unpaid')
+          AS "totalUnpaidInvoices",
+        (SELECT COUNT(*) FROM invoices  WHERE user_id = $1 AND invoice_date = CURRENT_DATE)
+          AS "invoicesToday",
+        (SELECT COALESCE(SUM(total_amount), 0)
+         FROM invoices
+         WHERE user_id = $1)
+          AS "totalRevenue",
+        (SELECT COALESCE(SUM(total_amount), 0)
+          FROM invoices
+          WHERE user_id = $1 AND invoice_date = CURRENT_DATE)
+          AS "revenueToday",
+        (SELECT COALESCE(SUM(total_amount), 0)
+          FROM invoices
+          WHERE user_id = $1 AND invoice_date >= CURRENT_DATE - INTERVAL '7 days')
+          AS "revenueLast7Days",
+          (SELECT COALESCE(SUM(total_amount), 0)
+          FROM invoices
+          WHERE user_id = $1 AND invoice_date >= CURRENT_DATE - INTERVAL '30 days')
+          AS "revenueLast30Days"
+      `,
+      [user_id],
     );
 
-    res.json({
-      totalCustomers,
-      totalProducts,
-      totalInvoices,
-      totalPaidInvoices,
-      totalUnpaidInvoices,
-      totalRevenue,
-      recentInvoices: recentInvoicesRes.rows,
+    // 3️⃣ Final response
+    res.status(200).json({
+      ...statsRes.rows[0],
     });
   } catch (err: any) {
-    console.error(err);
+    console.error("Dashboard error:", err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
@@ -82,21 +62,21 @@ export const dropDown = async (req: AuthRequest, res: Response) => {
     const user_id = req.user.id;
     if (code === "ROLE") {
       const data = await pool.query(
-        "SELECT id,name FROM role WHERE is_active IS TRUE"
+        "SELECT id,name FROM role WHERE is_active IS TRUE",
       );
       res.status(200).json({ message: "Success", data: data.rows });
     }
     if (code === "PRODUCTS") {
       const data = await pool.query(
         "SELECT * FROM products WHERE user_id = $1 AND is_active IS NOT FALSE",
-        [user_id]
+        [user_id],
       );
       res.status(200).json({ message: "Success", data: data.rows });
     }
     if (code === "CUSTOMERS") {
       const data = await pool.query(
         "SELECT * FROM customers WHERE user_id = $1 AND is_active IS NOT FALSE",
-        [user_id]
+        [user_id],
       );
       res.status(200).json({ message: "Success", data: data.rows });
     }
@@ -104,7 +84,7 @@ export const dropDown = async (req: AuthRequest, res: Response) => {
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
