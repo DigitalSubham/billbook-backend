@@ -10,7 +10,7 @@ interface AuthRequest extends Request {
 export const createCustomer = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { name, email, mobile, address, state, gst_number } = req.body;
@@ -35,7 +35,7 @@ export const createCustomer = async (
     WHERE user_id = $1
       AND (email = $2 OR mobile = $3)
     `,
-        [user_id, email, mobile]
+        [user_id, email, mobile],
       );
     } else {
       existingCustomer = await pool.query(
@@ -45,20 +45,20 @@ export const createCustomer = async (
     WHERE user_id = $1
       AND mobile = $2
     `,
-        [user_id, mobile]
+        [user_id, mobile],
       );
     }
 
     if (existingCustomer.rows.length > 0) {
       return next(
-        new ErrorHandler(409, "Customer already exists with this mobile no.")
+        new ErrorHandler(409, "Customer already exists with this mobile no."),
       );
     }
 
     const result = await pool.query(
       `INSERT INTO customers (user_id,name,email,mobile,address,state,gst_number)
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [user_id, name, email, mobile, address, state, gst_number]
+      [user_id, name, email, mobile, address, state, gst_number],
     );
 
     res
@@ -68,7 +68,7 @@ export const createCustomer = async (
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
@@ -78,7 +78,7 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
     const user_id = req.user.id;
     const result = await pool.query(
       "SELECT cs.*,SUM(invoices.total_amount) AS totalAmount,SUM(invoices.received_amount)receivedAmount,SUM(invoices.total_amount) - SUM(invoices.received_amount) AS pendingAmount FROM customers cs LEFT JOIN invoices ON cs.id = invoices.customer_id WHERE cs.user_id = $1 GROUP BY cs.id;",
-      [user_id]
+      [user_id],
     );
     const data = result.rows.map((customer) => ({
       customerType: customer.customer_type,
@@ -89,7 +89,7 @@ export const getCustomers = async (req: AuthRequest, res: Response) => {
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
@@ -101,7 +101,7 @@ export const getCustomerById = async (req: AuthRequest, res: Response) => {
 
     const result = await pool.query(
       "SELECT * FROM customers WHERE id=$1 AND user_id=$2",
-      [id, user_id]
+      [id, user_id],
     );
     const data = result.rows.map((customer) => ({
       customerType: customer.customer_type,
@@ -131,7 +131,7 @@ export const updateCustomer = async (req: AuthRequest, res: Response) => {
       pincode,
       customerType,
     } = Object.fromEntries(
-      Object.entries(req.body).map(([k, v]) => [k, clean(v)])
+      Object.entries(req.body).map(([k, v]) => [k, clean(v)]),
     );
 
     const result = await pool.query(
@@ -149,7 +149,7 @@ export const updateCustomer = async (req: AuthRequest, res: Response) => {
         customerType,
         id,
         user_id,
-      ]
+      ],
     );
 
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
@@ -167,7 +167,7 @@ export const deleteCustomer = async (req: AuthRequest, res: Response) => {
 
     const result = await pool.query(
       "DELETE FROM customers WHERE id=$1 AND user_id=$2 RETURNING *",
-      [id, user_id]
+      [id, user_id],
     );
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
 
