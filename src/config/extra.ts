@@ -1,31 +1,50 @@
+import { fi } from "zod/locales";
 import pool from "./db.js";
 
-const updateInvoicesSchema = async () => {
+// const updateInvoicesSchema = async () => {
+//   try {
+//     await pool.query("BEGIN");
+
+//     // Remove global unique constraint
+//     await pool.query(`
+//       ALTER TABLE invoices
+//       DROP CONSTRAINT IF EXISTS invoices_invoice_number_key;
+//     `);
+
+//     // Add composite unique constraint
+//     await pool.query(`
+//       ALTER TABLE invoices
+//       ADD CONSTRAINT invoices_user_invoice_unique
+//       UNIQUE (user_id, invoice_number);
+//     `);
+
+//     await pool.query("COMMIT");
+//     console.log("✅ Invoices table updated successfully!");
+//   } catch (err) {
+//     await pool.query("ROLLBACK");
+//     console.error("❌ Error updating invoices table:", err);
+//     process.exit(1);
+//   } finally {
+//     await pool.end();
+//   }
+// };
+
+// updateInvoicesSchema();
+
+const updateProductSchema = async () => {
   try {
-    await pool.query("BEGIN");
-
-    // Remove global unique constraint
+    // Add columns with defaults
     await pool.query(`
-      ALTER TABLE invoices
-      DROP CONSTRAINT IF EXISTS invoices_invoice_number_key;
+      ALTER TABLE products
+      RENAME COLUMN product_type TO unit_type;
     `);
-
-    // Add composite unique constraint
-    await pool.query(`
-      ALTER TABLE invoices
-      ADD CONSTRAINT invoices_user_invoice_unique
-      UNIQUE (user_id, invoice_number);
-    `);
-
-    await pool.query("COMMIT");
-    console.log("✅ Invoices table updated successfully!");
-  } catch (err) {
-    await pool.query("ROLLBACK");
-    console.error("❌ Error updating invoices table:", err);
+    console.log("✅ Products table updated successfully!");
+  } catch (error) {
+    console.error("❌ Error updating products table:", error);
     process.exit(1);
   } finally {
     await pool.end();
   }
 };
 
-updateInvoicesSchema();
+updateProductSchema();
