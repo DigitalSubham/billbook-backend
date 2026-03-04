@@ -28,11 +28,11 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       notes,
       items,
       discount_amnt,
-      discount_desc,
       discount_type,
       received_amount,
+      subtotal,
     } = req.body;
-    // NOTE :- Discount type should be ENUM ("PERCENTAGE","ITEM-WISE","FIXED-AMOUNT")
+
     const user_id = req.user.id;
     const invoice_number = await generateInvoiceNumber(user_id);
 
@@ -41,7 +41,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
       `
       INSERT INTO invoices 
       (user_id, customer_id, invoice_number, invoice_type, invoice_date, due_date, 
-        payment_status, total_amount, total_tax, notes,cgst_total,sgst_total,igst_total,discount_amnt,discount_desc,discount_type,received_amount)
+        payment_status, total_amount, total_tax, notes,cgst_total,sgst_total,igst_total,discount_amnt,discount_type,received_amount,subtotal)
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
       RETURNING *;
       `,
@@ -60,17 +60,17 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         sgst_total,
         igst_total,
         discount_amnt ?? null,
-        discount_desc ?? null,
         discount_type ?? null,
         received_amount ?? null,
-      ]
+        subtotal,
+      ],
     );
 
     const invoice = invoiceRes.rows[0];
 
     await client.query(
       "INSERT INTO payments (amount,invoice_id,user_id) VALUES ($1,$2,$3)",
-      [received_amount, invoice.id, user_id]
+      [received_amount, invoice.id, user_id],
     );
 
     // 2️⃣ Insert invoice items + Update product stock
@@ -107,7 +107,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
           cgst,
           sgst,
           igst,
-        ]
+        ],
       );
 
       // 3️⃣ Update product stock
@@ -118,7 +118,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
         WHERE id = $2 AND stock >= $1
         RETURNING stock;
         `,
-        [quantity, product_id]
+        [quantity, product_id],
       );
 
       // If no row returned → insufficient stoc
@@ -138,7 +138,7 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   } finally {
     client.release();
@@ -165,6 +165,9 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
         inv.cgst_total,
         inv.sgst_total,
         inv.igst_total,
+        inv.subtotal,
+        inv.discount_amnt AS discount_Amount,
+        inv.discount_type AS discount_Type,
 
         -- Customer full details
         json_build_object(
@@ -212,7 +215,7 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
@@ -224,14 +227,14 @@ export const getInvoiceById = async (req: AuthRequest, res: Response) => {
 
     const invoiceRes = await pool.query(
       "SELECT * FROM invoices WHERE id=$1 AND user_id=$2",
-      [id, user_id]
+      [id, user_id],
     );
     if (!invoiceRes.rows[0])
       return res.status(404).json({ message: "Not found" });
 
     const itemsRes = await pool.query(
       "SELECT * FROM invoice_items WHERE invoice_id=$1",
-      [id]
+      [id],
     );
 
     res.json({ ...invoiceRes.rows[0], items: itemsRes.rows });
@@ -239,7 +242,7 @@ export const getInvoiceById = async (req: AuthRequest, res: Response) => {
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
@@ -251,7 +254,7 @@ export const deleteInvoice = async (req: AuthRequest, res: Response) => {
 
     const result = await pool.query(
       "DELETE FROM invoices WHERE id=$1 AND user_id=$2 RETURNING *",
-      [id, user_id]
+      [id, user_id],
     );
     if (!result.rows[0]) return res.status(404).json({ message: "Not found" });
 
@@ -260,7 +263,7 @@ export const deleteInvoice = async (req: AuthRequest, res: Response) => {
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
@@ -268,14 +271,14 @@ export const deleteInvoice = async (req: AuthRequest, res: Response) => {
 export const addPaymentsForInvoice = async (
   req: AuthRequest,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { amount, invoiceId, salesmanId } = req.body;
     const user_id = req.user.id;
     await pool.query(
       "INSERT INTO payments (amount,invoice_id,user_id,added_by) VALUES ($1,$2,$3,$4)",
-      [amount, invoiceId, user_id, salesmanId]
+      [amount, invoiceId, user_id, salesmanId],
     );
 
     res.status(200).json({ message: "Payment Added Successfully" });
@@ -283,7 +286,7 @@ export const addPaymentsForInvoice = async (
     console.error(err);
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
