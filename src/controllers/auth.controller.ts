@@ -26,7 +26,7 @@ interface LoginBody {
 // REGISTER
 export const register = async (
   req: Request<{}, {}, RegisterBody>,
-  res: Response
+  res: Response,
 ) => {
   try {
     const { email, password } = req.body;
@@ -44,7 +44,7 @@ export const register = async (
 
     const result = await pool.query(
       "INSERT INTO users ( email, password) VALUES ($1, $2) RETURNING id, email",
-      [email, hashedPassword]
+      [email, hashedPassword],
     );
 
     res.status(201).json({
@@ -60,7 +60,7 @@ export const register = async (
 
     throw new ErrorHandler(
       error.statusCode ?? 500,
-      error.message ?? "Internal Server Error"
+      error.message ?? "Internal Server Error",
     );
   }
 };
@@ -72,7 +72,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
 
     const userResult = await pool.query(
       "SELECT * FROM users WHERE email = $1",
-      [email]
+      [email],
     );
     if (userResult.rows.length === 0) {
       throw new ErrorHandler(500, "No Account Found, Try Singup");
@@ -88,7 +88,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
     const token = jwt.sign(
       { id: user.id, email: user.email },
       process.env.JWT_SECRET as string,
-      { expiresIn: "7d" }
+      { expiresIn: "7d" },
     );
 
     res.json({
@@ -109,7 +109,7 @@ export const login = async (req: Request<{}, {}, LoginBody>, res: Response) => {
 
     throw new ErrorHandler(
       error.statusCode ?? 500,
-      error.message ?? "Internal Server Error"
+      error.message ?? "Internal Server Error",
     );
   }
 };
@@ -123,7 +123,7 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     const userRes = await pool.query(
       `SELECT id, name, email, mobile, address, gst_number, pan_number, role, is_active, created_at
        FROM users WHERE id=$1`,
-      [user_id]
+      [user_id],
     );
 
     if (!userRes.rows[0]) throw new ErrorHandler(400, "User not found");
@@ -133,7 +133,7 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
     const paymentRes = await pool.query(
       `SELECT id, ifsc, account_no, bank, payment_type, upi_id, is_primary, currency, created_at
        FROM user_payments WHERE user_id=$1`,
-      [user_id]
+      [user_id],
     );
 
     const profile = {
@@ -151,7 +151,7 @@ export const getProfile = async (req: AuthRequest, res: Response) => {
 
     throw new ErrorHandler(
       error.statusCode ?? 500,
-      error.message ?? "Internal Server Error"
+      error.message ?? "Internal Server Error",
     );
   }
 };
@@ -176,7 +176,7 @@ export const updateProfile = async (req: Request, res: Response) => {
 
     throw new ErrorHandler(
       err.statusCode ?? 500,
-      err.message ?? "Internal Server Error"
+      err.message ?? "Internal Server Error",
     );
   }
 };
