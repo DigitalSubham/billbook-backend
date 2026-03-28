@@ -2,6 +2,8 @@ import { NextFunction, Request, Response } from "express";
 import pool from "../config/db.js";
 import { clean } from "../utils/clean.js";
 import ErrorHandler from "../helper/error-handler.js";
+import { buildPaginationMeta, getPagination } from "../utils/pagination.js";
+import { getSearchTerm } from "../utils/search.js";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -76,15 +78,83 @@ export const createCustomer = async (
 export const getCustomers = async (req: AuthRequest, res: Response) => {
   try {
     const user_id = req.user.id;
-    const result = await pool.query(
-      "SELECT cs.*,SUM(invoices.total_amount) AS totalAmount,SUM(invoices.received_amount)receivedAmount,SUM(invoices.total_amount) - SUM(invoices.received_amount) AS pendingAmount FROM customers cs LEFT JOIN invoices ON cs.id = invoices.customer_id WHERE cs.user_id = $1 GROUP BY cs.id;",
-      [user_id],
+    const pagination = getPagination(req.query.page, req.query.limit);
+    const search = getSearchTerm(req.query.search);
+    const searchValue = search ? `%${search}%` : undefined;
+
+    const countParams: Array<string | number> = [user_id];
+    let countQuery = "SELECT COUNT(*)::int AS total FROM customers WHERE user_id = $1";
+
+    if (searchValue) {
+      countParams.push(searchValue);
+      countQuery += `
+        AND (
+          name ILIKE $2 OR
+          email ILIKE $2 OR
+          mobile ILIKE $2 OR
+          gst_number ILIKE $2 OR
+          address ILIKE $2
+        )
+      `;
+    }
+
+    const countResult = await pool.query(
+      countQuery,
+      countParams,
     );
+    const total = countResult.rows[0]?.total ?? 0;
+    const params: Array<string | number> = [user_id];
+
+    let query = `
+      SELECT
+        cs.*,
+        SUM(invoices.total_amount) AS "totalAmount",
+        SUM(invoices.received_amount) AS "receivedAmount",
+        SUM(invoices.total_amount) - SUM(invoices.received_amount) AS "pendingAmount"
+      FROM customers cs
+      LEFT JOIN invoices ON cs.id = invoices.customer_id
+      WHERE cs.user_id = $1
+    `;
+
+    if (searchValue) {
+      params.push(searchValue);
+      query += `
+        AND (
+          cs.name ILIKE $2 OR
+          cs.email ILIKE $2 OR
+          cs.mobile ILIKE $2 OR
+          cs.gst_number ILIKE $2 OR
+          cs.address ILIKE $2
+        )
+      `;
+    }
+
+    query += `
+      GROUP BY cs.id
+      ORDER BY cs.created_at DESC, cs.id DESC
+    `;
+
+    if (pagination.enabled) {
+      params.push(pagination.limit, pagination.offset);
+      const limitIndex = searchValue ? 3 : 2;
+      const offsetIndex = searchValue ? 4 : 3;
+      query += ` LIMIT $${limitIndex} OFFSET $${offsetIndex}`;
+    }
+
+    const result = await pool.query(query, params);
     const data = result.rows.map((customer) => ({
       customerType: customer.customer_type,
       ...customer,
     }));
-    res.json(data);
+
+    if (!pagination.enabled) {
+      return res.json(data);
+    }
+
+    res.json({
+      data,
+      pagination: buildPaginationMeta(total, pagination.page, pagination.limit),
+    });
   } catch (err: any) {
     console.error(err);
     throw new ErrorHandler(

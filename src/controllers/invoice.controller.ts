@@ -3,10 +3,23 @@ import pool from "../config/db.js";
 import { generateInvoiceNumber } from "../utils/invoiceNumber.js";
 import ErrorHandler from "../helper/error-handler.js";
 import camelize from "camelize";
+import { buildPaginationMeta, getPagination } from "../utils/pagination.js";
+import { getSearchTerm } from "../utils/search.js";
 
 interface AuthRequest extends Request {
   user?: any;
 }
+
+const getInvoiceStatusFilter = (value: unknown): string | undefined => {
+  const normalized = Array.isArray(value) ? value[0] : value;
+
+  if (typeof normalized !== "string") {
+    return undefined;
+  }
+
+  const status = normalized.trim().toLowerCase();
+  return status.length > 0 ? status : undefined;
+};
 
 export const createInvoice = async (req: AuthRequest, res: Response) => {
   const client = await pool.connect();
@@ -148,8 +161,57 @@ export const createInvoice = async (req: AuthRequest, res: Response) => {
 export const getInvoices = async (req: AuthRequest, res: Response) => {
   try {
     const user_id = req.user.id;
+    const pagination = getPagination(req.query.page, req.query.limit);
+    const search = getSearchTerm(req.query.search);
+    const status = getInvoiceStatusFilter(req.query.status);
+    const searchValue = search ? `%${search}%` : undefined;
+    const countParams: Array<string | number> = [user_id];
+    let countQuery = `
+      SELECT COUNT(DISTINCT inv.id)::int AS total
+      FROM invoices inv
+      LEFT JOIN customers c ON inv.customer_id = c.id
+      WHERE inv.user_id = $1
+    `;
 
-    const query = `
+    if (status) {
+      countParams.push(status);
+      const statusIndex = countParams.length;
+      countQuery += `
+        AND CASE
+          WHEN inv.payment_status <> 'paid' AND inv.due_date < CURRENT_DATE
+            THEN 'overdue'
+          ELSE inv.payment_status
+        END = $${statusIndex}
+      `;
+    }
+
+    if (searchValue) {
+      countParams.push(searchValue);
+      const searchIndex = countParams.length;
+      countQuery += `
+        AND (
+          inv.invoice_number ILIKE $${searchIndex} OR
+          inv.invoice_type ILIKE $${searchIndex} OR
+          inv.payment_status ILIKE $${searchIndex} OR
+          CASE
+            WHEN inv.payment_status <> 'paid' AND inv.due_date < CURRENT_DATE
+              THEN 'overdue'
+            ELSE inv.payment_status
+          END ILIKE $${searchIndex} OR
+          c.name ILIKE $${searchIndex} OR
+          c.mobile ILIKE $${searchIndex}
+        )
+      `;
+    }
+
+    const countResult = await pool.query(
+      countQuery,
+      countParams,
+    );
+    const total = countResult.rows[0]?.total ?? 0;
+    const params: Array<string | number> = [user_id];
+
+    let query = `
       SELECT 
         inv.id,
         inv.invoice_number,
@@ -157,6 +219,11 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
         inv.invoice_date,
         inv.due_date,
         inv.payment_status,
+        CASE
+          WHEN inv.payment_status <> 'paid' AND inv.due_date < CURRENT_DATE
+            THEN 'overdue'
+          ELSE inv.payment_status
+        END AS status,
         inv.total_amount,
         inv.received_amount,
         inv.total_tax,
@@ -204,13 +271,62 @@ export const getInvoices = async (req: AuthRequest, res: Response) => {
       LEFT JOIN products p 
         ON ii.product_id = p.id 
       WHERE inv.user_id = $1
-      GROUP BY inv.id, c.id
-      ORDER BY inv.created_at DESC;
     `;
 
-    const result = await pool.query(query, [user_id]);
+    if (status) {
+      params.push(status);
+      const statusIndex = params.length;
+      query += `
+        AND CASE
+          WHEN inv.payment_status <> 'paid' AND inv.due_date < CURRENT_DATE
+            THEN 'overdue'
+          ELSE inv.payment_status
+        END = $${statusIndex}
+      `;
+    }
+
+    if (searchValue) {
+      params.push(searchValue);
+      const searchIndex = params.length;
+      query += `
+        AND (
+          inv.invoice_number ILIKE $${searchIndex} OR
+          inv.invoice_type ILIKE $${searchIndex} OR
+          inv.payment_status ILIKE $${searchIndex} OR
+          CASE
+            WHEN inv.payment_status <> 'paid' AND inv.due_date < CURRENT_DATE
+              THEN 'overdue'
+            ELSE inv.payment_status
+          END ILIKE $${searchIndex} OR
+          c.name ILIKE $${searchIndex} OR
+          c.mobile ILIKE $${searchIndex}
+        )
+      `;
+    }
+
+    query += `
+      GROUP BY inv.id, c.id
+      ORDER BY inv.created_at DESC
+    `;
+
+    if (pagination.enabled) {
+      params.push(pagination.limit, pagination.offset);
+      const limitIndex = params.length - 1;
+      const offsetIndex = params.length;
+      query += ` LIMIT $${limitIndex} OFFSET $${offsetIndex}`;
+    }
+
+    const result = await pool.query(query, params);
     const finalResponse = camelize(result.rows);
-    res.json(finalResponse);
+
+    if (!pagination.enabled) {
+      return res.json(finalResponse);
+    }
+
+    res.json({
+      data: finalResponse,
+      pagination: buildPaginationMeta(total, pagination.page, pagination.limit),
+    });
   } catch (err: any) {
     console.error(err);
     throw new ErrorHandler(

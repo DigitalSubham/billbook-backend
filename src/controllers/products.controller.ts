@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import pool from "../config/db.js";
 import ErrorHandler from "../helper/error-handler.js";
+import { buildPaginationMeta, getPagination } from "../utils/pagination.js";
+import { getSearchTerm } from "../utils/search.js";
 
 interface AuthRequest extends Request {
   user?: any;
@@ -60,9 +62,54 @@ export const createProduct = async (req: AuthRequest, res: Response) => {
 export const getProducts = async (req: AuthRequest, res: Response) => {
   try {
     const user_id = req.user.id;
-    const result = await pool.query("SELECT * FROM products WHERE user_id=$1", [
-      user_id,
-    ]);
+    const pagination = getPagination(req.query.page, req.query.limit);
+    const search = getSearchTerm(req.query.search);
+    const searchValue = search ? `%${search}%` : undefined;
+    const countParams: Array<string | number> = [user_id];
+    let countQuery = "SELECT COUNT(*)::int AS total FROM products WHERE user_id = $1";
+
+    if (searchValue) {
+      countParams.push(searchValue);
+      countQuery += `
+        AND (
+          name ILIKE $2 OR
+          description ILIKE $2 OR
+          sku ILIKE $2 OR
+          category ILIKE $2
+        )
+      `;
+    }
+
+    const countResult = await pool.query(
+      countQuery,
+      countParams,
+    );
+    const total = countResult.rows[0]?.total ?? 0;
+    const params: Array<string | number> = [user_id];
+    let query = "SELECT * FROM products WHERE user_id=$1";
+
+    if (searchValue) {
+      params.push(searchValue);
+      query += `
+        AND (
+          name ILIKE $2 OR
+          description ILIKE $2 OR
+          sku ILIKE $2 OR
+          category ILIKE $2
+        )
+      `;
+    }
+
+    query += " ORDER BY created_at DESC, id DESC";
+
+    if (pagination.enabled) {
+      params.push(pagination.limit, pagination.offset);
+      const limitIndex = searchValue ? 3 : 2;
+      const offsetIndex = searchValue ? 4 : 3;
+      query += ` LIMIT $${limitIndex} OFFSET $${offsetIndex}`;
+    }
+
+    const result = await pool.query(query, params);
     const data = result.rows.map((product) => ({
       ...product,
       taxRate: Number.parseFloat(product.tax_percent) || 0,
@@ -71,7 +118,15 @@ export const getProducts = async (req: AuthRequest, res: Response) => {
       conversionFactor: product.conversion_factor,
       unitType: product.unit_type,
     }));
-    res.json(data);
+
+    if (!pagination.enabled) {
+      return res.json(data);
+    }
+
+    res.json({
+      data,
+      pagination: buildPaginationMeta(total, pagination.page, pagination.limit),
+    });
   } catch (err: any) {
     console.error(err);
     throw new ErrorHandler(

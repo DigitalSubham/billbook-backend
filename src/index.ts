@@ -18,7 +18,7 @@ app
   .use("/api", v1);
 
 app.get("/", (req, res) => {
-  res.json({ message: "Hello, BillBook Backend is running!" });
+  res.json({ message: "Hello, BillBook Backend is running! v1.0.2" });
 });
 
 app.get("/test-db", async (req, res) => {
